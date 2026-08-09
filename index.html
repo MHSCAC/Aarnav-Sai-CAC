@@ -8,15 +8,29 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background-color: #121212; color: #FDFBF7; display: flex; flex-direction: column; justify-content: space-between; height: 100vh; padding: 24px; }
     
-    /* Header Status Indicator */
-    .header-status { margin-bottom: 16px; flex-shrink: 0; }
+    /* Header & Top Bar Controls */
+    .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-shrink: 0; gap: 12px; }
     .status-indicator { font-size: 14px; color: #888; display: flex; align-items: center; gap: 8px; }
     .pulse-dot { width: 10px; height: 10px; background-color: #ef4444; border-radius: 50%; display: inline-block; }
 
+    /* Accessibility Controls Bar */
+    .accessibility-tools { display: flex; align-items: center; gap: 8px; }
+    .tool-btn { background-color: #222; border: 1px solid #444; color: #E0E0E0; padding: 6px 12px; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: 600; }
+    .tool-btn:hover { background-color: #333; }
+    .font-toggle-group { display: flex; border: 1px solid #444; border-radius: 8px; overflow: hidden; }
+    .font-toggle-group button { background: #222; border: none; color: #888; padding: 6px 10px; font-size: 13px; font-weight: bold; cursor: pointer; }
+    .font-toggle-group button.active { background: #2B82F6; color: white; }
+
     /* Live Caption Header & Scrollable History Body */
     .caption-container { flex: 1; display: flex; flex-direction: column; overflow-y: auto; gap: 16px; padding-right: 8px; }
-    .transcript-line { font-size: 28px; font-weight: 500; line-height: 1.4; color: #E0E0E0; border-bottom: 1px solid #222; padding-bottom: 12px; word-break: break-word; }
-    .transcript-line.interim { color: #888; font-style: italic; } /* Visual styling for actively changing text */
+    
+    /* Font Size Dynamic Variables (Managed via JS/CSS Class) */
+    .caption-container.font-normal .transcript-line { font-size: 28px; }
+    .caption-container.font-large .transcript-line { font-size: 36px; }
+    .caption-container.font-xlarge .transcript-line { font-size: 48px; }
+
+    .transcript-line { font-weight: 500; line-height: 1.4; color: #E0E0E0; border-bottom: 1px solid #222; padding-bottom: 12px; word-break: break-word; transition: font-size 0.2s ease; }
+    .transcript-line.interim { color: #888; font-style: italic; }
 
     /* Custom Scrollbar Styling */
     .caption-container::-webkit-scrollbar { width: 6px; }
@@ -44,16 +58,27 @@
 </head>
 <body>
 
-  <!-- Top Status Header -->
-  <div class="header-status">
+  <!-- Top Bar Controls -->
+  <div class="top-bar">
     <div class="status-indicator">
       <span class="pulse-dot" id="dot"></span>
-      <span id="status">Tap 'Start Listening' to grant microphone access</span>
+      <span id="status">Tap 'Start Listening' to grant mic access</span>
+    </div>
+
+    <div class="accessibility-tools">
+      <!-- Font Size Toggle Group -->
+      <div class="font-toggle-group">
+        <button id="fontNormBtn" class="active" onclick="setFontSize('normal')">A</button>
+        <button id="fontLgBtn" onclick="setFontSize('large')">A+</button>
+        <button id="fontXlBtn" onclick="setFontSize('xlarge')">A++</button>
+      </div>
+      <!-- Clear History Button -->
+      <button class="tool-btn" onclick="clearTranscript()">Clear</button>
     </div>
   </div>
 
   <!-- Live Caption History Display Area -->
-  <div class="caption-container" id="captionContainer">
+  <div class="caption-container font-normal" id="captionContainer">
     <div class="transcript-line interim" id="currentInterim">Speech captions will appear here in real time...</div>
   </div>
 
@@ -106,25 +131,21 @@
           const transcript = event.results[i][0].transcript;
           
           if (event.results[i].isFinal) {
-            // Append finalized speech line to history log
             const newLine = document.createElement('div');
             newLine.className = 'transcript-line';
             newLine.innerText = transcript.trim();
             
-            // Insert finalized text right before active interim block
             captionContainer.insertBefore(newLine, currentInterim);
-            currentInterim.innerText = ''; // Reset active line placeholder
+            currentInterim.innerText = '';
           } else {
             interimTranscript += transcript;
           }
         }
 
-        // Show live changing results in progress
         if (interimTranscript) {
           currentInterim.innerText = interimTranscript;
         }
 
-        // Auto-scroll to bottom as new spoken text comes in
         captionContainer.scrollTop = captionContainer.scrollHeight;
       };
 
@@ -154,6 +175,23 @@
         statusText.innerText = "Microphone Paused";
         dot.style.backgroundColor = "#ef4444";
       }
+    }
+
+    /* Font Size Controller */
+    function setFontSize(size) {
+      captionContainer.classList.remove('font-normal', 'font-large', 'font-xlarge');
+      captionContainer.classList.add('font-' + size);
+
+      document.getElementById('fontNormBtn').classList.toggle('active', size === 'normal');
+      document.getElementById('fontLgBtn').classList.toggle('active', size === 'large');
+      document.getElementById('fontXlBtn').classList.toggle('active', size === 'xlarge');
+    }
+
+    /* Clear Transcript Function */
+    function clearTranscript() {
+      const historyLines = captionContainer.querySelectorAll('.transcript-line:not(.interim)');
+      historyLines.forEach(line => line.remove());
+      currentInterim.innerText = isListening ? 'Listening...' : 'Speech captions will appear here in real time...';
     }
 
     function openReplyModal() {
