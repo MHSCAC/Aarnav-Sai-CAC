@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ListenLink - Accessibility Assistant</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #121212; color: #FDFBF7; display: flex; flex-direction: column; justify-content: space-between; height: 100vh; padding: 24px; }
+    
+    /* Live Caption Header & Body */
+    .caption-container { flex: 1; display: flex; flex-direction: column; justify-content: center; overflow-y: auto; }
+    .status-indicator { font-size: 14px; color: #888; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .pulse-dot { width: 10px; height: 10px; background-color: #ef4444; border-radius: 50%; display: inline-block; }
+    .caption-text { font-size: 32px; font-weight: 600; line-height: 1.3; word-break: break-word; }
+
+    /* Controls & Buttons */
+    .controls { display: flex; flex-direction: column; gap: 12px; padding-bottom: 20px; }
+    .btn { background-color: #2B82F6; color: white; border: none; padding: 18px; border-radius: 30px; font-size: 20px; font-weight: 600; cursor: pointer; text-align: center; }
+    .btn-secondary { background-color: #333; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Reply Drawer (Modal) */
+    .modal { display: none; position: fixed; bottom: 0; left: 0; right: 0; background-color: #1E1E1E; border-top-left-radius: 20px; border-top-right-radius: 20px; padding: 24px; box-shadow: 0 -5px 25px rgba(0,0,0,0.5); }
+    .modal.active { display: block; }
+    textarea { width: 100%; height: 120px; background-color: #2A2A2A; color: white; border: 1px solid #444; border-radius: 12px; padding: 16px; font-size: 18px; resize: none; outline: none; }
+    
+    /* Voice Selection Control */
+    .voice-select-container { margin-top: 12px; display: flex; align-items: center; justify-content: space-between; }
+    .voice-select-container label { font-size: 16px; color: #ccc; }
+    select { background-color: #2A2A2A; color: white; border: 1px solid #444; border-radius: 8px; padding: 8px 12px; font-size: 16px; outline: none; }
+
+    .modal-buttons { display: flex; gap: 10px; margin-top: 16px; }
+    .modal-buttons .btn { flex: 1; }
+  </style>
+</head>
+<body>
+
+  <!-- Live Caption Display Area -->
+  <div class="caption-container">
+    <div class="status-indicator">
+      <span class="pulse-dot" id="dot"></span>
+      <span id="status">Tap 'Start Listening' to grant microphone access</span>
+    </div>
+    <div class="caption-text" id="captions">Speech captions will appear here in real time...</div>
+  </div>
+
+  <!-- Bottom Main Action -->
+  <div class="controls">
+    <button class="btn btn-secondary" id="micBtn" onclick="toggleListening()">Start Listening</button>
+    <button class="btn" onclick="openReplyModal()">Reply</button>
+  </div>
+
+  <!-- Speech Response Modal -->
+  <div class="modal" id="replyModal">
+    <textarea id="replyInput" placeholder="Type your response..."></textarea>
+    
+    <!-- Voice Selector -->
+    <div class="voice-select-container">
+      <label for="voiceSelect">Voice Gender:</label>
+      <select id="voiceSelect">
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+      </select>
+    </div>
+
+    <div class="modal-buttons">
+      <button class="btn btn-secondary" id="cancelBtn" onclick="closeReplyModal()">Cancel</button>
+      <button class="btn" id="sendBtn" onclick="sendAndSpeak()">Send & Speak</button>
+    </div>
+  </div>
+
+  <script>
+    const captions = document.getElementById('captions');
+    const statusText = document.getElementById('status');
+    const micBtn = document.getElementById('micBtn');
+    const sendBtn = document.getElementById('sendBtn');
+    const dot = document.getElementById('dot');
+    let isListening = false;
+    let recognition;
+
+    // Initialize Web Speech Recognition
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
+      recognition.onresult = (event) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        captions.innerText = transcript;
+      };
+
+      recognition.onerror = (e) => {
+        statusText.innerText = "Error: " + e.error;
+      };
+
+      recognition.onend = () => {
+        if (isListening) recognition.start();
+      };
+    } else {
+      captions.innerText = "Speech recognition is not supported in this browser. Please use Chrome or Safari.";
+    }
+
+    function toggleListening() {
+      if (!recognition) return;
+      if (!isListening) {
+        recognition.start();
+        isListening = true;
+        micBtn.innerText = "Pause Listening";
+        statusText.innerText = "Microphone Active";
+        dot.style.backgroundColor = "#22c55e";
+      } else {
+        isListening = false;
+        recognition.stop();
+        micBtn.innerText = "Start Listening";
+        statusText.innerText = "Microphone Paused";
+        dot.style.backgroundColor = "#ef4444";
+      }
+    }
+
+    function openReplyModal() {
+      document.getElementById('replyModal').classList.add('active');
+      document.getElementById('replyInput').focus();
+    }
+
+    function closeReplyModal() {
+      document.getElementById('replyModal').classList.remove('active');
+    }
+
+    async function sendAndSpeak() {
+      const input = document.getElementById('replyInput');
+      const text = input.value.trim();
+      const selectedVoice = document.getElementById('voiceSelect').value;
+      
+      if (!text) return;
+
+      sendBtn.disabled = true;
+      sendBtn.innerText = "Generating...";
+
+      try {
+        const response = await fetch('http://localhost:5001/speak', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            text: text,
+            voice: selectedVoice 
+          })
+        });
+
+        if (response.ok) {
+          const audioBlob = await response.blob();
+          const audioUrl = URL.createObjectURL(audioBlob);
+          const audio = new Audio(audioUrl);
+          
+          await audio.play();
+
+          input.value = "";
+          closeReplyModal();
+        } else {
+          const errorMsg = await response.text();
+          alert("Server error: " + errorMsg);
+        }
+      } catch (err) {
+        alert("Network error: Make sure your Python server is running on port 5001.");
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.innerText = "Send & Speak";
+      }
+    }
+  </script>
+</body>
+</html>
