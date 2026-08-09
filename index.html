@@ -215,7 +215,7 @@
       document.getElementById('replyModal').classList.remove('active');
     }
 
-    /* Instant Client-Side Web Speech Synthesis */
+    /* Optimized Client-Side Web Speech Synthesis */
     function sendAndSpeak() {
       const input = document.getElementById('replyInput');
       const text = input.value.trim();
@@ -224,22 +224,53 @@
       if (!text) return;
 
       if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel(); // Stop any previous playback
+        window.speechSynthesis.cancel(); // Cancel lingering audio
 
         const utterance = new SpeechSynthesisUtterance(text);
-        
+
         if (availableVoices.length === 0) {
           availableVoices = window.speechSynthesis.getVoices();
         }
 
         if (availableVoices.length > 0) {
-          const matchedVoice = availableVoices.find(v => 
-            selectedGender === 'female' 
-              ? (v.name.includes('Samantha') || v.name.includes('Victoria') || v.name.includes('Zira') || v.name.includes('Karen') || (v.lang.startsWith('en') && v.name.toLowerCase().includes('female')))
-              : (v.name.includes('Alex') || v.name.includes('Daniel') || v.name.includes('David') || v.name.includes('Fred') || (v.lang.startsWith('en') && v.name.toLowerCase().includes('male')))
-          );
+          let matchedVoice = null;
+
+          if (selectedGender === 'male') {
+            // Target high-quality male voices across Chrome, Apple, Windows, and Android
+            matchedVoice = availableVoices.find(v => 
+              v.lang.startsWith('en') && (
+                v.name.includes('Google US English') ||
+                v.name.includes('Natural') ||
+                v.name.includes('Guy') ||
+                v.name.includes('Daniel') ||
+                v.name.includes('David') ||
+                v.name.includes('Alex')
+              ) && !v.name.includes('Fred') // Filter out legacy robotic voices
+            );
+          } else {
+            // Target high-quality female voices
+            matchedVoice = availableVoices.find(v => 
+              v.lang.startsWith('en') && (
+                v.name.includes('Samantha') ||
+                v.name.includes('Victoria') ||
+                v.name.includes('Zira') ||
+                v.name.includes('Jenny') ||
+                v.name.includes('Aria')
+              )
+            );
+          }
+
+          // General English fallback
+          if (!matchedVoice) {
+            matchedVoice = availableVoices.find(v => v.lang.startsWith('en'));
+          }
+
           if (matchedVoice) utterance.voice = matchedVoice;
         }
+
+        // Calibrate pitch and speed for realistic tone
+        utterance.rate = 1.0; 
+        utterance.pitch = selectedGender === 'male' ? 0.95 : 1.05;
 
         window.speechSynthesis.speak(utterance);
       } else {
