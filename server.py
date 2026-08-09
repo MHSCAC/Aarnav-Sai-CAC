@@ -6,7 +6,7 @@ from flask_cors import CORS
 from kokoro_onnx import Kokoro
 
 app = Flask(__name__)
-# THIS LINE IS CRITICAL FOR NETLIFY TO TALK TO RENDER:
+#This is how netlify talks to render
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 print("Loading Kokoro ONNX model...")
