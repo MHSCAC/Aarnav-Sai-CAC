@@ -1,19 +1,20 @@
 import io
+import os
 import soundfile as sf
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from kokoro_onnx import Kokoro
 
 app = Flask(__name__)
-CORS(app)
+# THIS LINE IS CRITICAL FOR NETLIFY TO TALK TO RENDER:
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 print("Loading Kokoro ONNX model...")
 kokoro = Kokoro("kokoro-v1.0.int8.onnx", "voices-v1.0.bin")
 
-# Kokoro Voice Mapping
 VOICES = {
-    "female": "af_heart",  # Female voice
-    "male": "am_adam"      # Male voice
+    "female": "af_heart",
+    "male": "am_adam"
 }
 
 @app.route('/speak', methods=['POST'])
@@ -28,7 +29,6 @@ def speak():
     voice_id = VOICES.get(selected_gender, VOICES["male"])
 
     try:
-        # Generate speech audio
         samples, sample_rate = kokoro.create(
             text_to_speak, 
             voice=voice_id, 
@@ -36,7 +36,6 @@ def speak():
             lang="en-us"
         )
 
-        # Write audio buffer to WAV format
         buffer = io.BytesIO()
         sf.write(buffer, samples, sample_rate, format='WAV')
         buffer.seek(0)
@@ -50,5 +49,5 @@ def speak():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    print("Starting Kokoro TTS Server on http://localhost:5001")
-    app.run(port=5001, debug=True)
+    port = int(os.environ.get("PORT", 5001))
+    app.run(host='0.0.0.0', port=port)
