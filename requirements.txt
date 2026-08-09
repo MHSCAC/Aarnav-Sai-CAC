@@ -1,0 +1,5 @@
+flask
+flask-cors
+kokoro-onnx
+soundfile
+gunicorn
